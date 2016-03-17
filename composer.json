@@ -1,0 +1,29 @@
+{
+    "name": "ohtarr/utility",
+    "type": "library",
+    "description": "PHP Utility Library",
+    "keywords": [
+        "php5",
+        "utility"
+        ],
+    "homepage": "http://github.com/ohtarr/utility",
+    "license": "LGPL3.0",
+    "authors": [
+        {
+            "name": "Ohtarr",
+            "email": "oh@tarr.com",
+            "role": "Developer"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=5.3.3"
+    },
+    "require-dev": {
+    },
+    "autoload": {
+        "psr-4": {
+            "ohtarr\\": "lib"
+        }
+    }
+}
