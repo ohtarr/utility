@@ -31,7 +31,7 @@ class Utility
 {
     public function __construct()
     {
-        throw new \Exception("Do not create instances of this object, call public static member functions like \ohtarr\Utility::someDumbThing(params)");
+        throw new \Exception("Do not create instances of this object, call public static member functions like \metaclassing\Utility::someDumbThing(params)");
     }
 
     /*
@@ -60,7 +60,7 @@ class Utility
 				target_ip			OPTIONAL	Text (50 characters)
 				notes				OPTIONAL	Text
 		*/
-		$URL = AUTO_REPORT_API_DEV;
+		$URL = API_REPORTING_URL;
         $CURL = curl_init($URL);
 		//url-ify the data for the POST
 		foreach($POST as $KEY => $VALUE ) {
