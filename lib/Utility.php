@@ -73,7 +73,7 @@ class Utility
 			}
 		}
 		$PSTRING = implode('&',$FARRAY);
-		dumper($PSTRING);
+		//dumper($PSTRING);
 		// setup curl options
         $OPTS = array(
 								// send basic authentication as the tools service account in AD
@@ -100,18 +100,5 @@ class Utility
 		// return the complete response
 //       return $RESPONSE;
     }
-	public function auto_report_test()
-	{
-		return $this->curl_automation_reportdev_api(				[
-													"origin_hostname"		=> "netman test",
-													"processname"		=> "netman test",
-													"category"			=> "network",
-													"timesaved"		=> "2",
-													"datestarted"			=> "2016-03-28 09:01:00",
-													"datefinished"	=> "2016-03-28 09:01:30",
-													"success"	=> true,
-												]);
-	}
-
 
 }
