@@ -73,7 +73,6 @@ class Utility
 			}
 		}
 		$PSTRING = implode('&',$FARRAY);
-		//dumper($PSTRING);
 		// setup curl options
         $OPTS = array(
 								// send basic authentication as the tools service account in AD
@@ -92,13 +91,11 @@ class Utility
                                 //CURLOPT_VERBOSE       => true,
                                 );
         curl_setopt_array($CURL,$OPTS);
-
 		// execute the curl request and get our response
-//        $RESPONSE = curl_exec($CURL);
+        $RESPONSE = curl_exec($CURL);
 		// close the curl handle
-//		curl_close($CURL);
+		curl_close($CURL);
 		// return the complete response
-//       return $RESPONSE;
+		return $RESPONSE;
     }
-
 }
