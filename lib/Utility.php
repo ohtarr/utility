@@ -98,4 +98,174 @@ class Utility
 		// return the complete response
 		return $RESPONSE;
     }
+
+	public function Find_Switches()
+    {
+		// Use the object (information store) search function to find the devices we WANT to push to
+		$SEARCH = array();
+
+		// what we want to find
+		$SEARCH = array(    // Search for all cisco network devices
+                "category"		=> "Management",
+                "type"			=> "Device_Network_Cisco",
+                );
+
+		// Do the actual search
+		$SWITCHES = array();
+		$RESULTS = \Information::search($SEARCH);
+		foreach($RESULTS as $OBJECTID)
+		{
+			// Get the information for the device matching the specific ID
+			$DEVICE = \Information::retrieve($OBJECTID);
+
+			// Regex to match all devices named swa/swp
+			$PATTERN = "/^[a-zA-Z]{8}[sS][wW][aApPcCdD][0-9]{2,3}$/";
+
+			//Search our list of cisco devices for all swa/swps.
+			if ( preg_match($PATTERN,$DEVICE->data["name"],$REG) )
+			{
+				//If device is a switch, add to our array!
+				$SWITCHES[]=$OBJECTID;  
+			}
+		}
+		//die(\metaclassing\Utility::dumper($SWITCHES));  //debugging
+		
+		//return the array to the caller!
+		return($SWITCHES); 
+	}
+	public function get_snow_locations()
+	{
+		// Instance (kiewit = prod, kiewitdev = dev, might be a test one as well?)
+		$INSTANCE = "kiewit";
+		//$INSTANCE = "kiewitdev";
+
+		// Table to query, translation map in SNSoapClient class for some
+		$TABLE = "location";
+
+		// Include our library objects
+		require_once(BASEDIR . "/vendor/metaclassing/snsoapclient/phpsoapclient/class.Record.php");
+		require_once(BASEDIR . "/vendor/metaclassing/snsoapclient/phpsoapclient/Class.SoapClient.php");
+		require_once(BASEDIR . "/vendor/metaclassing/snsoapclient/phpsoapclient/Class.DefaultValues.php");
+
+		$OPTIONS = [
+					"login" => LDAP_USER,
+					"password" => LDAP_PASS,
+					"instance" => $INSTANCE,
+					"tableName" => $TABLE,
+					"debug" => FALSE,
+                    ];
+		$SERVICENOW = new \SNSoapClient($OPTIONS);
+
+		///////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// by default, this returns a maximum of 250 items...
+		$RECORDS = array();     // Our final results array built by the chunk foreach
+		$KEYNAME = "sys_id";    // sys_id is the current key value returned
+		$CHUNKSIZE = 250;       // 250 records at a time (max supported by ServiceNow API)
+		// So we are going to need the complete keys list...
+		$KEYS = $SERVICENOW->getKeys();
+		// and array_chunk them into separate requests
+		//\metaclassing\Utility::dumper($KEYS);
+		foreach ( array_chunk($KEYS,250) as $RECORDKEYS ) {
+			\metaclassing\Utility::dumper($RECORDKEYS);
+			$SEARCH = "sys_id=" . implode( "^ORsys_id=" , $RECORDKEYS );// Form a crafted search for our key chunk
+			$RECORDSRESPONSE = $SERVICENOW->getRecords($SEARCH);        // Run our search
+			$RECORDS = array_merge($RECORDS , $RECORDSRESPONSE );       // Add response to our records array
+			//\metaclassing\Utility::dumper($RECORDS);
+			//print "\n";
+		}
+		// Convert the soap reply objects into an assoc array (recursively)
+		$RECORDS = \metaclassing\Utility::objectToArray($RECORDS);
+		//\metaclassing\Utility::dumper($RECORDS);
+
+		$SITES = [];
+		foreach($RECORDS as $RECORD) {
+			if(isset($RECORD["soapRecord"]["full_name"])) {
+				$SITE = substr($RECORD["soapRecord"]["full_name"],0,8);
+				$SITES[$SITE] = $SITE;
+			}
+		}
+		ksort($SITES);
+
+		return $SITES;
+	}
+
+    public function snow_tableapi_getTable( $TABLE )
+	{
+		$uri = "https://yahoo.com";
+		$response = \Httpful\Request::get($uri)->send();
+ 		print $response;
+		//echo 'The Dead Weather has ' . count($response->body->result->album) . " albums.\n";
+	}
+
+/*
+    public function snow_tableapi_getTable( $TABLE )
+    {
+		// create a curl handle for our URL
+        $URL = API_SNOW_URL."/api/now/v1/table/{$TABLE}";
+		//print $URL;
+        $CURL = curl_init($URL);
+
+		// setup curl options
+        $OPTS = array(
+								// send basic authentication as the tools service account in AD
+								CURLOPT_USERPWD			=> LDAP_USER . ":" . LDAP_PASS,
+                                // Generic client stuff
+								CURLOPT_HEADER			=> true,
+                                CURLOPT_RETURNTRANSFER  => true,
+                                CURLOPT_FOLLOWLOCATION  => true,
+								CURLOPT_HTTPGET			=> true,
+                                CURLOPT_USERAGENT       => "Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0)",
+								CURLOPT_TIMEOUT			=> 30,
+								//SNOW HEADERS
+								CURLOPT_HTTPHEADER		=> array('Accept: application/json','Content-type: application/json'),
+                                );
+		\metaclassing\Utility::dumper($OPTS);
+        curl_setopt_array($CURL,$OPTS);
+
+		// execute the curl request and get our response
+        $RESPONSE = curl_exec($CURL);
+		// close the curl handle
+		curl_close($CURL);
+		// return the complete response
+        print $RESPONSE;
+		return $RESPONSE;
+    }
+/**/
+
+	public function parse_nested_list_to_array($LIST, $INDENTATION = " ")
+	{
+		$RESULT = array();
+		$PATH = array();
+
+		$LINES = explode("\n",$LIST);
+
+		foreach ($LINES as $LINE)
+		{
+			if ($LINE == "") { continue; print "Skipped blank line\n"; } // Skip blank lines, they dont need to be in our structure
+			$DEPTH	= strlen($LINE) - strlen(ltrim($LINE));
+			$LINE	= trim($LINE);
+			// truncate path if needed
+			while ($DEPTH < sizeof($PATH))
+			{
+				array_pop($PATH);
+			}
+			// keep label (at depth)
+			$PATH[$DEPTH] = $LINE;
+			// traverse path and add label to result
+			$PARENT =& $RESULT;
+			foreach ($PATH as $DEPTH => $KEY)
+			{
+				if (!isset($PARENT[$KEY]))
+				{
+					$PARENT[$LINE] = array();
+					break;
+				}
+				$PARENT =& $PARENT[$KEY];
+			}
+		}
+		$RESULT = \metaclassing\Utility::recursiveRemoveEmptyArray($RESULT);
+		//ksort($RESULT);	// Sort our keys in the array for comparison ease // Do we really need this?
+		return $RESULT;
+	}
+
 }
