@@ -189,11 +189,12 @@ class Utility
 		return $SITES;
 	}
 
-    public function snow_tableapi_getTable( $TABLE )
+    public function snow_tableapi_getTable( )
 	{
 		$uri = "https://yahoo.com";
-		$response = \Httpful\Request::get($uri)->send();
- 		print $response;
+		\Httpful\Request::get($uri)->send();
+		//$response = \Httpful\Request::get($uri)->send();
+		\metaclassing\Utility::dumper($response);
 		//echo 'The Dead Weather has ' . count($response->body->result->album) . " albums.\n";
 	}
 
