@@ -189,13 +189,34 @@ class Utility
 		return $SITES;
 	}
 
-    public function snow_tableapi_getTable( )
+    public function snow_tableapi_getTable()
 	{
-		$uri = "https://yahoo.com";
-		\Httpful\Request::get($uri)->send();
-		//$response = \Httpful\Request::get($uri)->send();
-		\metaclassing\Utility::dumper($response);
-		//echo 'The Dead Weather has ' . count($response->body->result->album) . " albums.\n";
+		$uri = API_SNOW_URL . "/api/now/v1/table/cmn_location";
+		return \Httpful\Request::get($uri)                  // Build a PUT request...
+						->expectsJson()
+						->authenticateWith(LDAP_USER, LDAP_PASS)  // authenticate with basic auth...
+						->parseWith("\\metaclassing\\Utility::decodeJson")
+ 						->send()
+						->body;
+		//$json = $response->raw_body;
+		//return \metaclassing\Utility::decodeJson($json);
+	}
+
+    public function snow_tableapi_getTable2($TABLE)
+	{
+		$uri = API_SNOW_URL . "/" .  $TABLE . ".do?JSONv2&sysparm_action=getKeys";
+		$uri = API_SNOW_URL . "/" .  $TABLE . ".do?JSONv2";
+		return \Httpful\Request::get($uri)
+						->expectsJson()
+						->authenticateWith(LDAP_USER, LDAP_PASS)
+						->parseWith("\\metaclassing\\Utility::decodeJson")
+/*						->parseWith(function($body){
+								return json_decode($body, true);
+							})/**/
+ 						->send()
+						->body;
+		//$json = $response->raw_body;
+		//return \metaclassing\Utility::decodeJson($json);
 	}
 
 /*
