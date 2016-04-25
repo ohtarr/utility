@@ -1,4 +1,5 @@
 <?php
+//require_once "/opt/iahunter/php-911enable-egw/lib/EGW.php";
 /**
  * lib/Utility.php.
  *
@@ -133,62 +134,7 @@ class Utility
 		//return the array to the caller!
 		return($SWITCHES); 
 	}
-	public function get_snow_locations()
-	{
-		// Instance (kiewit = prod, kiewitdev = dev, might be a test one as well?)
-		$INSTANCE = "kiewit";
-		//$INSTANCE = "kiewitdev";
-
-		// Table to query, translation map in SNSoapClient class for some
-		$TABLE = "location";
-
-		// Include our library objects
-		require_once(BASEDIR . "/vendor/metaclassing/snsoapclient/phpsoapclient/class.Record.php");
-		require_once(BASEDIR . "/vendor/metaclassing/snsoapclient/phpsoapclient/Class.SoapClient.php");
-		require_once(BASEDIR . "/vendor/metaclassing/snsoapclient/phpsoapclient/Class.DefaultValues.php");
-
-		$OPTIONS = [
-					"login" => LDAP_USER,
-					"password" => LDAP_PASS,
-					"instance" => $INSTANCE,
-					"tableName" => $TABLE,
-					"debug" => FALSE,
-                    ];
-		$SERVICENOW = new \SNSoapClient($OPTIONS);
-
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// by default, this returns a maximum of 250 items...
-		$RECORDS = array();     // Our final results array built by the chunk foreach
-		$KEYNAME = "sys_id";    // sys_id is the current key value returned
-		$CHUNKSIZE = 250;       // 250 records at a time (max supported by ServiceNow API)
-		// So we are going to need the complete keys list...
-		$KEYS = $SERVICENOW->getKeys();
-		// and array_chunk them into separate requests
-		//\metaclassing\Utility::dumper($KEYS);
-		foreach ( array_chunk($KEYS,250) as $RECORDKEYS ) {
-			\metaclassing\Utility::dumper($RECORDKEYS);
-			$SEARCH = "sys_id=" . implode( "^ORsys_id=" , $RECORDKEYS );// Form a crafted search for our key chunk
-			$RECORDSRESPONSE = $SERVICENOW->getRecords($SEARCH);        // Run our search
-			$RECORDS = array_merge($RECORDS , $RECORDSRESPONSE );       // Add response to our records array
-			//\metaclassing\Utility::dumper($RECORDS);
-			//print "\n";
-		}
-		// Convert the soap reply objects into an assoc array (recursively)
-		$RECORDS = \metaclassing\Utility::objectToArray($RECORDS);
-		//\metaclassing\Utility::dumper($RECORDS);
-
-		$SITES = [];
-		foreach($RECORDS as $RECORD) {
-			if(isset($RECORD["soapRecord"]["full_name"])) {
-				$SITE = substr($RECORD["soapRecord"]["full_name"],0,8);
-				$SITES[$SITE] = $SITE;
-			}
-		}
-		ksort($SITES);
-
-		return $SITES;
-	}
-
+	
     public function snow_tableapi_getTable()
 	{
 		$uri = API_SNOW_URL . "/api/now/v1/table/cmn_location";
@@ -288,6 +234,219 @@ class Utility
 		$RESULT = \metaclassing\Utility::recursiveRemoveEmptyArray($RESULT);
 		//ksort($RESULT);	// Sort our keys in the array for comparison ease // Do we really need this?
 		return $RESULT;
+	}
+
+
+	public function E911_get_erls(){
+
+
+		$URI = BASEURL . "/api/911-get-locations.php";
+		//print $URI;
+		return \Httpful\Request::get($URI)											//Build a PUT request...
+								->expectsJson()										//we expect JSON back from the api
+//								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
+								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
+								->send()											//send the request.
+								->body;											
+
+	}
+	
+	public function E911_to_add(){
+		
+		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
+		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+
+		//params for our snow api call (active and only give us the names)
+		$PARAMS = array(
+							"u_active"                	=> "true",
+							
+							"sysparm_fields"        	=> "name,street",
+		);
+		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
+
+		//extract the NAME of each location into a new array
+		foreach($locations as $location){
+			foreach($location as $lname){
+				$locname[]=$lname[name];
+			}
+		}
+		sort($locname);													//sort the array
+
+		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
+		
+		//extract the NAME of each erl into a new array
+		foreach($erls as $erl){		
+			$erlname[]=$erl[erl_id];
+		}
+		sort($erlname);													//sort the array
+
+		return array_values(array_diff($locname,$erlname));
+	}
+
+	public function E911_to_remove(){
+		
+		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
+		$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+
+		//extract the NAME of each location into a new array
+		foreach($locations as $location){
+			$locname[]=$location[name];
+		}
+		sort($locname);													//sort the array
+
+		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
+		
+		//extract the NAME of each erl into a new array
+		foreach($erls as $erl){		
+			$erlname[]=$erl[erl_id];
+		}
+		sort($erlname);													//sort the array
+
+		return array_values(array_diff($erlname,$locname));
+	}
+
+	public function E911_add_erls(){
+		
+		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
+		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+
+		//params for our snow api call (active and only give us the names)
+		$PARAMS = array(
+							"u_active"                	=> "true",
+//							"sysparm_fields"        	=> "name,street,city,state,zip,country",
+							"sysparm_fields"        	=> "name,street",
+		);
+		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
+
+		//extract the NAME of each location into a new array
+		foreach($locations as $location){
+			foreach($location as $lname){
+				$locname[]=$lname[name];
+			}
+		}
+		sort($locname);													//sort the array
+
+		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
+		
+		//extract the NAME of each erl into a new array
+		foreach($erls as $erl){		
+			$erlname[]=$erl[erl_id];
+		}
+		sort($erlname);													//sort the array
+		print_r($locations);
+		//return array_values(array_diff($locname,$erlname));
+	}
+
+	function getInfoAddress ($address)
+    {
+        $return = array('street'=>NULL,
+                        'number'=>NULL,
+                        'complement'=>NULL);
+
+        //firstly, erase spaces of the strings
+        $addressWithoutSpace = str_replace(' ', '', $address);
+        //discover the pattern using regex
+        if(preg_match('/^([0-9.-])+(.)*$/',$addressWithoutSpace) === 1) {
+            //here, the numbers comes first and then the information about the street
+            $info1 = preg_split('/[[:alpha:]]/', $addressWithoutSpace);
+            $info2 = preg_split('/[0-9.-]/', $address);
+            $return['number'] = $info1[0];
+            $return['street'] = end($info2);
+        }
+        elseif(preg_match('/^([[:alpha:]]|[[:punct:]])+(.)*$/',$addressWithoutSpace) === 1) {
+            //here, I have a alpha-numeric word in the first part of the address
+            if(preg_match('/^(.)+([[:punct:]])+(.)*([0-9.-])*$/',$addressWithoutSpace) === 1) {
+                if(preg_match('/,/',$addressWithoutSpace) === 1) {
+                    //have one or more comma and ending with the number
+                    $info1 = explode(",", $address);
+                    $return['number'] = trim(preg_replace('/([^0-9-.])/', ' ', end($info1)));//the last element of the array is the number
+                    array_pop($info1);//pop the number from array
+                    $return['street'] = str_replace(",", "",implode(" ",$info1));//the rest of the string is the street name
+                }
+                else {
+                    //finish with the numer, without comma
+                    $info1 = explode(" ", $address);
+                    $return['number'] = end($info1);//the last elemento of array is the number
+                    array_pop($info1);//pop the number from array
+                    $return['street'] = implode(" ",$info1);//the rest of the string is the street name
+                }
+            }
+            elseif(preg_match('/^(.)+([0-9.-])+$/',$addressWithoutSpace) === 1) {
+                //finish with the number, without punctuation
+                $info1 = explode(" ", $address);
+                $return['number'] = end($info1);//the last elemento of array is the number
+                array_pop($info1);//pop the number from array
+                $return['street'] = implode(" ",$info1);//the rest of the string is the street name
+            }
+            else {
+                //case without any number
+                if (preg_match('/,/',$addressWithoutSpace) === 1) {
+                    $return['number'] = NULL;
+                    $endArray = explode(',', $address);
+                    $return['complement'] = end($endArray);//complement is the last element of array
+                    array_pop($endArray);// pop the last element
+                    $return['street'] = implode(" ", $endArray);//the rest of the string is the name od street
+                }
+                else {
+                    $return['number'] = NULL;
+                    $return['street'] = $address;//address is just the street name
+                }
+            }
+        }
+
+        return ($return);
+    }
+
+	public function parseAddress($ADDRESS){
+
+		
+
+
+	}
+
+function splitAddress($address) {
+    // Get everything up to the first number with a regex
+    $hasMatch = preg_match('/^[^0-9]*/', $address, $match);
+    // If no matching is possible, return the supplied string as the street
+    if (!$hasMatch) {
+        return array($address, "", "");
+    }
+    // Remove the street from the address.
+    $address = str_replace($match[0], "", $address);
+    $street = trim($match[0]);
+    // Nothing left to split, return
+    if (strlen($address == 0)) {
+        return array($street, "", "");
+    }
+    // Explode address to an array
+    $addrArray = explode(" ", $address);
+    // Shift the first element off the array, that is the house number
+    $housenumber = array_shift($addrArray);
+    // If the array is empty now, there is no extension.
+    if (count($addrArray) == 0) {
+        return array($street, $housenumber, "");
+    }
+    // Join together the remaining pieces as the extension.
+    $extension = implode(" ", $addrArray);
+    return array($street, $housenumber, $extension);
+}
+
+	public function SnowGetAddresses(){
+		
+		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
+		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+
+		//params for our snow api call (active and only give us the names)
+		$PARAMS = array(
+							"u_active"                	=> "true",
+							"sysparm_fields"        	=> "name,street,city,state,zip,country",
+		);
+		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
+
+		//extract the NAME of each location into a new array
+
+		return json_encode($locations);
+
 	}
 
 }
