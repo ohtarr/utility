@@ -40,27 +40,6 @@ Retrieve data from ServiceNows JSON V2 Data Retrieval API.
 Provide SNOW Table Name ($table) and an array of parameters ($params).
 Information available at http://wiki.servicenow.com/index.php?title=JSONv2_Web_Service
 */
-	//SNOWs JSON API...  Not used currently.
-	public function SnowDataRetrieve($TABLE, $PARAMS2)
-	{
-		$PARAMS1["JSONv2"] = "";
-		$PARAMS = array_merge($PARAMS1, $PARAMS2);
-		foreach($PARAMS as $KEY => $VALUE)
-		{
-			$PARMS .= "&" . $KEY;
-			if ($VALUE !== ""){
-				$PARMS .= "=" . $VALUE;
-			}
-		}
-		$URI = API_SNOW_URL . "/" . $TABLE . ".do?" . $PARMS;
-		//print $URI;
-		return \Httpful\Request::get($URI)											//Build a PUT request...
-								->expectsJson()										//we expect JSON back from the api
-								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
-								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
-								->send()											//send the request.
-								->body;											
-	}
 	//SNOW TABLE API - GET - retrieve data from a SNOW table.
 	public function SnowTableApiGet($TABLE, $PARAMS)
 	{
@@ -79,13 +58,19 @@ Information available at http://wiki.servicenow.com/index.php?title=JSONv2_Web_S
 		//Build the URL to GET including our parameters from $PARMS
 		$URI = API_SNOW_URL . "/api/now/table/" . $TABLE . "?" . $PARMS;
 		//build the http query and execute using httpful, return the data
-		return \Httpful\Request::get($URI)											//Build a GET request...
+		$raw = \Httpful\Request::get($URI)											//Build a GET request...
 								->expectsJson()										//we expect JSON back from the api
 								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
 								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
 								->send()											//send the request.
 								->body;												//include the body
+	
+		foreach($raw[result] as $site){
+			$new[] = $site;
+		}
+		return $new;
 	}
+
 	//Feed this function a $TABLE name and it will give you an array with all the sysIDs in that table.
 	public function SnowGetTableIds($TABLE)
 	{
@@ -143,7 +128,8 @@ Information available at http://wiki.servicenow.com/index.php?title=JSONv2_Web_S
 						"name"		=> $SITENAME,
 						);
 		//Execute the main SnowTableApiGet with our parameters, return the results
-		return $this->SnowTableApiGet($TABLE, $PARAMS);
+		$raw = $this->SnowTableApiGet($TABLE, $PARAMS);
+		return $raw[0];
 	}
 }
 
