@@ -186,41 +186,16 @@ class Utility
 
 	}
 	
-/* 	public function E911_to_add(){
-		
-		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
-		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
-
-		//params for our snow api call (active and only give us the names)
-		$PARAMS = array(
-							"u_active"                	=>	"true",
-							"u_e911_validated"			=>	"true",
-							"sysparm_fields"        	=>	"name,street,u_street_2",
-		);
-		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
-
-		print "Locations: ";
-		print_r($locations);
-
-		//extract the NAME of each location into a new array
-		foreach($locations as $location){
-//			foreach($location as $lname){
-
-				$locname[]=$location[name];
-//			}
-		}
-		sort($locname);													//sort the array
-
-		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
-		
-		//extract the NAME of each erl into a new array
-		foreach($erls as $erl){		
-			$erlname[]=$erl[erl_id];
-		}
-		sort($erlname);													//sort the array
-
-		return array_values(array_diff($locname,$erlname));				//compare arrays, return differences, and reindex array
-	} */
+	public function E911_get_switches(){
+		$URI = BASEURL . "/api/911-get-switches.php";
+		//print $URI;
+		return \Httpful\Request::get($URI)											//Build a PUT request...
+								->expectsJson()										//we expect JSON back from the api
+//								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
+								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
+								->send()											//send the request.
+								->body;											
+	}
 
 	public function E911_erls_to_Remove(){
 		
@@ -407,6 +382,88 @@ class Utility
 		//extract the NAME of each location into a new array
 
 		return json_encode($locations);
+
+	}
+
+	public function E911_Switches_to_Add(){
+		
+		$SEARCH = array(    // Search for all cisco network devices
+                "category"              =>	"Management",
+                "type"                  =>	"Device_Network_Cisco",
+//				"custom"					=>	"%SWD01%",
+                );
+
+		// Do the actual search
+		$RESULTS = \Information::search($SEARCH);
+	
+		//print_R($RESULTS);
+
+		foreach($RESULTS as $OBJECTID){
+			$DEVICE = \Information::retrieve($OBJECTID);
+			
+			$reg = "/^.*[sS][wW][cCdD]01$/";
+			if (preg_match($reg,$DEVICE->data['name'], $hits)){
+				$NAMES[$DEVICE->data['id']] = $DEVICE->data['name'];
+			}
+		}
+		$e911switches = \ohtarr\Utility::E911_get_switches();
+		
+		foreach($e911switches as $e911switch){
+			$e911switchnames[$e911switch['switch_id']] = $e911switch['switch_description'];
+		}
+
+		asort($NAMES);
+		asort($e911switchnames);
+
+		print_r($NAMES);
+		print count($NAMES);
+		print_r($e911switchnames);
+		print count($e911switchnames);
+
+		$diff = array_diff($NAMES,$e911switchnames);
+		print_r($diff);
+		print count($diff);
+
+	}
+
+	public function E911_Switches_to_Remove(){
+		
+		$SEARCH = array(    // Search for all cisco network devices
+                "category"              =>	"Management",
+                "type"                  =>	"Device_Network_Cisco",
+//				"custom"					=>	"%SWD01%",
+                );
+
+		// Do the actual search
+		$RESULTS = \Information::search($SEARCH);
+	
+		//print_R($RESULTS);
+
+		foreach($RESULTS as $OBJECTID){
+			$DEVICE = \Information::retrieve($OBJECTID);
+			
+			$reg = "/^.*[sS][wW][cCdD]01$/";
+			if (preg_match($reg,$DEVICE->data['name'], $hits)){
+				$NAMES[$DEVICE->data['id']] = $DEVICE->data['name'];
+			}
+		}
+		$e911switches = \ohtarr\Utility::E911_get_switches();
+		
+		foreach($e911switches as $e911switch){
+			$e911switchnames[$e911switch['switch_id']] = $e911switch['switch_description'];
+		}
+
+		asort($NAMES);
+		asort($e911switchnames);
+
+		print_r($NAMES);
+		print count($NAMES);
+		print_r($e911switchnames);
+		print count($e911switchnames);
+
+		$diff = array_diff($e911switchnames,$NAMES);
+		print_r($diff);
+		print count($diff);
 
 	}
 

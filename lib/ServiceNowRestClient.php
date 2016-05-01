@@ -35,11 +35,7 @@ class ServiceNowRestClient
 	{
 
 	}
-/*
-Retrieve data from ServiceNows JSON V2 Data Retrieval API.
-Provide SNOW Table Name ($table) and an array of parameters ($params).
-Information available at http://wiki.servicenow.com/index.php?title=JSONv2_Web_Service
-*/
+
 	//SNOW TABLE API - GET - retrieve data from a SNOW table.
 	public function SnowTableApiGet($TABLE, $PARAMS)
 	{
