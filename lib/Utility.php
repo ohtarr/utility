@@ -415,14 +415,14 @@ class Utility
 		asort($NAMES);
 		asort($e911switchnames);
 
-		print_r($NAMES);
-		print count($NAMES);
-		print_r($e911switchnames);
-		print count($e911switchnames);
+		//print_r($NAMES);
+		//print count($NAMES);
+		//print_r($e911switchnames);
+		//print count($e911switchnames);
 
-		$diff = array_diff($NAMES,$e911switchnames);
-		print_r($diff);
-		print count($diff);
+		return array_diff($NAMES,$e911switchnames);
+		//print_r($diff);
+		//print count($diff);
 
 	}
 
@@ -442,7 +442,7 @@ class Utility
 		foreach($RESULTS as $OBJECTID){
 			$DEVICE = \Information::retrieve($OBJECTID);
 			
-			$reg = "/^.*[sS][wW][cCdD]01$/";
+			$reg = "/^.*[sS][wW][cCdDaApP]$/";
 			if (preg_match($reg,$DEVICE->data['name'], $hits)){
 				$NAMES[$DEVICE->data['id']] = $DEVICE->data['name'];
 			}
@@ -456,15 +456,66 @@ class Utility
 		asort($NAMES);
 		asort($e911switchnames);
 
-		print_r($NAMES);
-		print count($NAMES);
-		print_r($e911switchnames);
-		print count($e911switchnames);
+		//print_r($NAMES);
+		//print count($NAMES);
+		//print_r($e911switchnames);
+		//print count($e911switchnames);
 
-		$diff = array_diff($e911switchnames,$NAMES);
-		print_r($diff);
-		print count($diff);
+		return array_diff($e911switchnames,$NAMES);
+		//print_r($diff);
+		//print count($diff);
 
 	}
+
+	public function E911_Add_switches(){
+		//print "ADDING ERLS \n";
+		$addswitches = \ohtarr\Utility::E911_Switches_to_Add();
+		\metaclassing\Utility::dumper($addswitches);
+		$EGW = new \EmergencyGateway\EGW(	E911_SWITCH_SOAP_URL,
+											E911_SWITCH_SOAP_WSDL,
+											E911_SOAP_USER,
+											E911_SOAP_PASS);
+
+		foreach($addswitches as $OBJECTID => $NAME){
+			$DEVICE = \Information::retrieve($OBJECTID);
+			
+			$ADD_SWITCH = array("switch_ip"				=>	$DEVICE->data['ip'],
+								"switch_vendor"			=>	"Cisco",
+								"switch_erl"			=>	substr($NAME, 0, 8),
+								"switch_description"	=>	$NAME,
+			);
+
+			print_r($ADD_SWITCH);
+
+			try {
+				$RESULT = $EGW->add_switch($ADD_SWITCH);
+			} catch ( \SoapFault $E ) {
+				die("SOAP Error: {$E}". $HTML->footer() );
+			} 
+
+			unset($DEVICE);
+			die("Croak!");
+		}
+
+
+
+	}
+
+	public function Sitecode_from_Name($NAME){
+		if ($NAME){
+			return strtoupper(substr($NAME, 0, 8));
+		} else {
+			die("No Input!");
+		}
+	}
+
+	public function Type_from_Name($NAME){
+	if ($NAME){
+			return strtoupper(substr($NAME, 8, 3));
+		} else {
+			die("No Input!");
+		}
+	}
+
 
 }
