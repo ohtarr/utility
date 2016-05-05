@@ -1,9 +1,9 @@
 <?php
 /**
- * lib/Utility.php.
+ * lib/ServiceNowRestClient.php.
  *
- * This class contains a bunch of public static member functions with various uses
- * and have been collected from various sources over the years
+ * This library contains functions to hit service-nows GET API to retrieve information from specific tables.
+ *
  *
  * PHP version 5
  *
@@ -127,5 +127,21 @@ class ServiceNowRestClient
 		$raw = $this->SnowTableApiGet($TABLE, $PARAMS);
 		return $raw[0];
 	}
+
+	public function SnowGetValidAddresses(){
+
+		$PARAMS = array(
+							"u_active"                	=>	"true",
+							"u_e911_validated"			=>	"true",
+							"sysparm_fields"        	=>	"name",
+		);
+		$locations = $this-> SnowTableApiGet("cmn_location", $PARAMS);
+		foreach($locations as $location){
+			$locname[]=$location[name];
+		}
+		sort($locname);
+		return $locname;
+	}
+
 }
 

@@ -185,95 +185,58 @@ class Utility
 								->body;											
 
 	}
-	
-	public function E911_get_switches(){
-		$URI = BASEURL . "/api/911-get-switches.php";
-		//print $URI;
-		return \Httpful\Request::get($URI)											//Build a PUT request...
-								->expectsJson()										//we expect JSON back from the api
-//								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
-								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
-								->send()											//send the request.
-								->body;											
+
+	public function E911_get_erl_names(){
+		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
+		//extract the NAME of each erl into a new array
+		foreach($erls as $erl){											//go through all e911 erls
+			$allerls[] = $erl[erl_id];
+		}
+		natcasesort($allerls);
+		$allerls = array_values($allerls);
+		return $allerls;
+	}
+
+	public function E911_get_default_erl_names(){
+		$erls = \ohtarr\Utility::E911_get_erl_names();
+
+		//extract the NAME of each erl into a new array
+		foreach($erls as $erlname){											//go through all e911 erls
+			$exploded = explode("_", $erlname);									//we break apart the erl using the "_" as a delimiter
+			$allerls[]=$exploded[0];											//add only the sitecodes of all erls to new array $sites
+		}
+		$sites = array_unique($allerls);
+		natcasesort($sites);
+		return $sites;
 	}
 
 	public function E911_erls_to_Remove(){
 		
-		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
-		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+		$SNOW = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
+		$snowlocs = $SNOW->SnowGetValidAddresses();
+		//print "SNOW LOCS:\n";
+		//print_r($snowlocs);
+		$e911erls = \ohtarr\Utility::E911_get_default_erl_names();
+		//print "E911 DEFAULT ERLS:\n";
+		//print_r($e911erls);
+		$deldefaults = array_values(array_diff($e911erls, $snowlocs));		//compare $sites to snow $locname to determine default erls to delete
+		//print "DEL DEFAULT ERLS:\n";
+		//print_r($deldefaults);
+		$alle911erls = \ohtarr\Utility::E911_get_erl_names();
+		//print "ALL E911 ERLS:\n";
+		//print_r($alle911erls);
 
-		$PARAMS = array(
-							"u_active"                	=>	"true",
-							"u_e911_validated"			=>	"true",
-							"sysparm_fields"        	=>	"name",
-		);
-		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
-
-		//print "LOCATIONS : \n";
-		//print_r($locations);
-		//print "\n";
-
-		//extract the NAME of each location into a new array
-		foreach($locations as $location){
-			$locname[]=$location[name];
-		}
-		sort($locname);													//sort the array
-
-		//print "LOCNAME= \n";
-		//print_r($locname);
-		//print "\n";
-
-		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
-		
-		//extract the NAME of each erl into a new array
-		
-		
-		foreach($erls as $erl){											//go through all e911 erls
-			$erl = $erl[erl_id];										//we only need the erl_id (SITECODE)
-			$allerls[] = $erl;											//add erl id to new allerls array
-			$erl = explode("_", $erl);									//we break apart the erl using the "_" as a delimiter
-			$sites[]=$erl[0];											//add only the sitecodes of all erls to new array $sites
-			
-		}
-		$sites = array_unique($sites);								//remove any duplicates in $sites.  This leaves us with a list of all def erls
-		//die(\metaclassing\Utility::dumper($sites));
-		
-		sort($allerls);													//sort the array
-		sort($sites);													//sort the array
-
-		//print "ALLERLS: \n";
-		//print_r($allerls);
-		//print "\n";
-		//print "SITES: \n";
-		//print_r($sites);
-		//print "\n";
-
-
-		$delsites = array_values(array_diff($sites, $locname));		//compare $sites to snow $locname to determine default erls to delete
-		
-		//print "DELSITES= ";
-		//print_r($delsites);
-		//print "\n";
-
-		foreach($delsites as $delerl){								//loop through all default erls to be deleted
-			//print "del erl: " . $delerl . "\n";
-			foreach($allerls as $erl){									//loop through ALL ERLS
-				
-				$reg = "/^{$delerl}.*/";								//regex to match the default erl to be deleted
-				preg_match($reg, $erl, $hits);							//perform the regex match
-				
-				if ($hits){												//if we have a match, add it to a new MASTER array to be deleted
-					//print "erl = " . $erl . "\n";
-					//print "HITS: " . $hits[0] . "\n";
-					$masterdelerls[] = $hits[0];						//master erl list to be DELETED
+		foreach($deldefaults as $defsite){
+			foreach($alle911erls as $site){
+				//print "SITE: " . $site . " DEFAULT SITE: " . $defsite . " SUBSTRING: " . substr($site, 0, 8) . "\n";
+				if(substr($site, 0, 8) == $defsite){
+					$dellall[] = $site;
 				}
-
-			
 			}
 		}
-
-		//die(\metaclassing\Utility::dumper($masterdelerls));
-		return $masterdelerls;
+		//print "DEL ALL:\n";
+		//print_r($dellall);
+		return $dellall;
 	}
 
 	public function E911_Remove_erls(){
@@ -297,39 +260,18 @@ class Utility
 			print "RESULT:" . $RESULT . "\n";
 		}
 	}
+
 	public function E911_erls_to_Add(){
 		
-		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
-		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+		$SNOW = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
+		$snowlocs = $SNOW->SnowGetValidAddresses();
 
-		//params for our snow api call (active and only give us the names)
-		$PARAMS = array(
-							"u_active"                	=>	"true",
-							"u_e911_validated"			=>	"true",
-//							"sysparm_fields"        	=>	"name,street,city,state,zip,country",
-							"sysparm_fields"        	=>	"name",
-		);
-		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
+		$E911erls = \ohtarr\Utility::E911_get_default_erl_names();
 
-		//extract the NAME of each location into a new array
-		foreach($locations as $location){
-				$locname[]=$location[name];
-		}
-		sort($locname);													//sort the array
-
-		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
-		
-		//extract the NAME of each erl into a new array
-		foreach($erls as $erl){		
-			$erlname[]=$erl[erl_id];
-		}
-		sort($erlname);													//sort the array
-		//print_r($locations);
-		return array_values(array_diff($locname,$erlname));
+		return array_values(array_diff($snowlocs,$E911erls));
 	}
 
 	public function E911_Add_erls(){
-		print "ADDING ERLS \n";
 		$adderls = \ohtarr\Utility::E911_erls_to_Add();
 		$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
 											E911_ERL_SOAP_WSDL,
@@ -337,25 +279,17 @@ class Utility
 											E911_SOAP_PASS);
 
 		$SNOW = new \ohtarr\ServiceNowRestClient;
-		
-		$PARAMS = array(
-							"u_active"                	=>	"true",
-							"u_e911_validated"			=>	"true",
-							"sysparm_fields"        	=>	"name,street,u_street_2,city,state,zip,country",
-		);
 
-		//$sites = $SNOW->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
-		
 		foreach($adderls as $site){
-			print "PRINTING SITE: \n";
-			print_r($site);
-			print "\nPRINTING OBJECT: \n";
+			//print "PRINTING SITE: \n";
+			//print_r($site);
+			//print "\nPRINTING OBJECT: \n";
 			$addr = (array) $SNOW->SnowGetSite($site);
-			print_r($addr);
+			//print_r($addr);
 			$ADDRESS = \EmergencyGateway\Address::fromString($addr[street], $addr[city], $addr[state], $addr[country], $addr[zip], $addr[name]);
 			$ADDRESS->LOC = $addr[u_street_2];
-			print_r((array) $ADDRESS);
-			print "\n";
+			//print_r((array) $ADDRESS);
+			//print "\n";
 
 			try{
 				$RESULT = $EGW->addERL($addr[name], (array) $ADDRESS);
@@ -367,110 +301,70 @@ class Utility
 		}
 	}
 
-	public function SnowGetAddresses(){
-		
-		$object = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
-		//$locations = $object->SnowGetAllRecords("cmn_location");		//get all locations from snow
+	public function E911_get_switches(){
+		$URI = BASEURL . "/api/911-get-switches.php";
+		//print $URI;
+		return \Httpful\Request::get($URI)											//Build a PUT request...
+								->expectsJson()										//we expect JSON back from the api
+//								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
+								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
+								->send()											//send the request.
+								->body;											
+	}
 
-		//params for our snow api call (active and only give us the names)
-		$PARAMS = array(
-							"u_active"                	=> "true",
-							"sysparm_fields"        	=> "name,street,city,state,zip,country",
-		);
-		$locations = $object->SnowTableApiGet("cmn_location", $PARAMS);  //get all locations from snow api
+	public function E911_get_switch_names(){
+		$e911switches = \ohtarr\Utility::E911_get_switches();
 
-		//extract the NAME of each location into a new array
+		foreach($e911switches as $e911switch){
+			$e911switchnames[$e911switch['switch_id']] = $e911switch['switch_description'];
+		}
+		natcasesort($e911switchnames);
+		return $e911switchnames;
+	}
 
-		return json_encode($locations);
+	public function Netman_get_switch_names(){
+
+		$SEARCH = array(    // Search for all cisco network devices
+                "category"              =>	"Management",
+                "type"                  =>	"Device_Network_Cisco",
+//				"custom"				=>	"%SWD01%",
+                );
+
+		// Do the actual search
+		$RESULTS = \Information::search($SEARCH);
+	
+		//print_R($RESULTS);
+
+		foreach($RESULTS as $OBJECTID){
+			$DEVICE = \Information::retrieve($OBJECTID);
+			
+			$reg = "/^.*[sS][wW][aAcCdDpP].*$/";
+			if (preg_match($reg,$DEVICE->data['name'], $hits)){
+				$switches[$DEVICE->data['id']] = $DEVICE->data['name'];
+			}
+		}
+		natcasesort($switches);
+		return $switches;
 
 	}
 
 	public function E911_Switches_to_Add(){
-		
-		$SEARCH = array(    // Search for all cisco network devices
-                "category"              =>	"Management",
-                "type"                  =>	"Device_Network_Cisco",
-//				"custom"					=>	"%SWD01%",
-                );
-
-		// Do the actual search
-		$RESULTS = \Information::search($SEARCH);
-	
-		//print_R($RESULTS);
-
-		foreach($RESULTS as $OBJECTID){
-			$DEVICE = \Information::retrieve($OBJECTID);
-			
-			$reg = "/^.*[sS][wW][cCdD]01$/";
-			if (preg_match($reg,$DEVICE->data['name'], $hits)){
-				$NAMES[$DEVICE->data['id']] = $DEVICE->data['name'];
-			}
-		}
-		$e911switches = \ohtarr\Utility::E911_get_switches();
-		
-		foreach($e911switches as $e911switch){
-			$e911switchnames[$e911switch['switch_id']] = $e911switch['switch_description'];
-		}
-
-		asort($NAMES);
-		asort($e911switchnames);
-
-		//print_r($NAMES);
-		//print count($NAMES);
-		//print_r($e911switchnames);
-		//print count($e911switchnames);
-
-		return array_diff($NAMES,$e911switchnames);
-		//print_r($diff);
-		//print count($diff);
-
+		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
+		$e911switches = \ohtarr\Utility::E911_get_switch_names();
+		return array_diff($netmanswitches,$e911switches);
 	}
 
 	public function E911_Switches_to_Remove(){
-		
-		$SEARCH = array(    // Search for all cisco network devices
-                "category"              =>	"Management",
-                "type"                  =>	"Device_Network_Cisco",
-//				"custom"					=>	"%SWD01%",
-                );
-
-		// Do the actual search
-		$RESULTS = \Information::search($SEARCH);
-	
-		//print_R($RESULTS);
-
-		foreach($RESULTS as $OBJECTID){
-			$DEVICE = \Information::retrieve($OBJECTID);
-			
-			$reg = "/^.*[sS][wW][cCdDaApP]$/";
-			if (preg_match($reg,$DEVICE->data['name'], $hits)){
-				$NAMES[$DEVICE->data['id']] = $DEVICE->data['name'];
-			}
-		}
-		$e911switches = \ohtarr\Utility::E911_get_switches();
-		
-		foreach($e911switches as $e911switch){
-			$e911switchnames[$e911switch['switch_id']] = $e911switch['switch_description'];
-		}
-
-		asort($NAMES);
-		asort($e911switchnames);
-
-		//print_r($NAMES);
-		//print count($NAMES);
-		//print_r($e911switchnames);
-		//print count($e911switchnames);
-
-		return array_diff($e911switchnames,$NAMES);
-		//print_r($diff);
-		//print count($diff);
+		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
+		$e911switches = \ohtarr\Utility::E911_get_switch_names();
+		return array_diff($e911switches,$netmanswitches);
 
 	}
 
 	public function E911_Add_switches(){
-		//print "ADDING ERLS \n";
+		//print "ADDING SWITCHES \n";
 		$addswitches = \ohtarr\Utility::E911_Switches_to_Add();
-		\metaclassing\Utility::dumper($addswitches);
+		//\metaclassing\Utility::dumper($addswitches);
 		$EGW = new \EmergencyGateway\EGW(	E911_SWITCH_SOAP_URL,
 											E911_SWITCH_SOAP_WSDL,
 											E911_SOAP_USER,
@@ -481,7 +375,7 @@ class Utility
 			
 			$ADD_SWITCH = array("switch_ip"				=>	$DEVICE->data['ip'],
 								"switch_vendor"			=>	"Cisco",
-								"switch_erl"			=>	substr($NAME, 0, 8),
+								"switch_erl"			=>	strtoupper(substr($NAME, 0, 8)),
 								"switch_description"	=>	$NAME,
 			);
 
