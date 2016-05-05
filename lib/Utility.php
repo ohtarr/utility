@@ -207,6 +207,7 @@ class Utility
 		}
 		$sites = array_unique($allerls);
 		natcasesort($sites);
+		$sites = array_values($sites);
 		return $sites;
 	}
 
@@ -240,24 +241,20 @@ class Utility
 	}
 
 	public function E911_Remove_erls(){
-		print "REMOVING ERLS! \n";
-		$delerls = \ohtarr\Utility::E911_erls_to_Remove();
-		
-		$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
-											E911_ERL_SOAP_WSDL,
-											E911_SOAP_USER,
-											E911_SOAP_PASS);
+		if($delerls = \ohtarr\Utility::E911_erls_to_Remove()){
+			
+			$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
+												E911_ERL_SOAP_WSDL,
+												E911_SOAP_USER,
+												E911_SOAP_PASS);
 
-		foreach($delerls as $erl){
-			print "name: " . $erl . "\n";
-			try{
-				$RESULT = $EGW->deleteERL($erl);
-				
-			} catch (\Exception $e) {
-//				print ("SoapError: {$E->getMessage()}");
-				print "\n CATCH! \n";
+			foreach($delerls as $erl){
+				try{
+					$RESULT = $EGW->deleteERL($erl);
+				} catch (\Exception $e) {
+					print "\n CATCH! \n";
+				}
 			}
-			print "RESULT:" . $RESULT . "\n";
 		}
 	}
 
@@ -272,32 +269,25 @@ class Utility
 	}
 
 	public function E911_Add_erls(){
-		$adderls = \ohtarr\Utility::E911_erls_to_Add();
-		$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
-											E911_ERL_SOAP_WSDL,
-											E911_SOAP_USER,
-											E911_SOAP_PASS);
+		if ($adderls = \ohtarr\Utility::E911_erls_to_Add()){
+			$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
+												E911_ERL_SOAP_WSDL,
+												E911_SOAP_USER,
+												E911_SOAP_PASS);
 
-		$SNOW = new \ohtarr\ServiceNowRestClient;
+			$SNOW = new \ohtarr\ServiceNowRestClient;
 
-		foreach($adderls as $site){
-			//print "PRINTING SITE: \n";
-			//print_r($site);
-			//print "\nPRINTING OBJECT: \n";
-			$addr = (array) $SNOW->SnowGetSite($site);
-			//print_r($addr);
-			$ADDRESS = \EmergencyGateway\Address::fromString($addr[street], $addr[city], $addr[state], $addr[country], $addr[zip], $addr[name]);
-			$ADDRESS->LOC = $addr[u_street_2];
-			//print_r((array) $ADDRESS);
-			//print "\n";
-
-			try{
-				$RESULT = $EGW->addERL($addr[name], (array) $ADDRESS);
-			} catch (\Exception $e) {
-				print $e;
-				print "***************************************************************************CATCH!";
+			foreach($adderls as $site){
+				$addr = (array) $SNOW->SnowGetSite($site);
+				$ADDRESS = \EmergencyGateway\Address::fromString($addr[street], $addr[city], $addr[state], $addr[country], $addr[zip], $addr[name]);
+				$ADDRESS->LOC = $addr[u_street_2];
+				try{
+					$RESULT = $EGW->addERL($addr[name], (array) $ADDRESS);
+				} catch (\Exception $e) {
+					print $e;
+					print "***************************************************************************CATCH!";
+				}
 			}
-			//die();
 		}
 	}
 
@@ -316,7 +306,7 @@ class Utility
 		$e911switches = \ohtarr\Utility::E911_get_switches();
 
 		foreach($e911switches as $e911switch){
-			$e911switchnames[$e911switch['switch_id']] = $e911switch['switch_description'];
+			$e911switchnames[$e911switch['switch_ip']] = $e911switch['switch_description'];
 		}
 		natcasesort($e911switchnames);
 		return $e911switchnames;
@@ -338,7 +328,8 @@ class Utility
 		foreach($RESULTS as $OBJECTID){
 			$DEVICE = \Information::retrieve($OBJECTID);
 			
-			$reg = "/^.*[sS][wW][aAcCdDpP].*$/";
+			//$reg = "/^.*(sw[acdpi]|SW[ACDPI])[0-9]{2}.*$/";
+			$reg = "/^\D{5}\S{3}.*(sw[acdpi]|SW[ACDPI])[0-9]*$/";
 			if (preg_match($reg,$DEVICE->data['name'], $hits)){
 				$switches[$DEVICE->data['id']] = $DEVICE->data['name'];
 			}
@@ -350,8 +341,19 @@ class Utility
 
 	public function E911_Switches_to_Add(){
 		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
+		$deferls = \ohtarr\Utility::E911_get_default_erl_names();
+		foreach($netmanswitches as $id => $switch){
+
+			foreach($deferls as $erl){
+				if(strtoupper(substr($switch,0,8)) == $erl){
+					$addswitches[$id]=$switch;
+				}
+			}
+		}
+		natcasesort($addswitches);
+
 		$e911switches = \ohtarr\Utility::E911_get_switch_names();
-		return array_diff($netmanswitches,$e911switches);
+		return array_diff($addswitches,$e911switches);
 	}
 
 	public function E911_Switches_to_Remove(){
@@ -362,37 +364,51 @@ class Utility
 	}
 
 	public function E911_Add_switches(){
-		//print "ADDING SWITCHES \n";
-		$addswitches = \ohtarr\Utility::E911_Switches_to_Add();
-		//\metaclassing\Utility::dumper($addswitches);
-		$EGW = new \EmergencyGateway\EGW(	E911_SWITCH_SOAP_URL,
-											E911_SWITCH_SOAP_WSDL,
-											E911_SOAP_USER,
-											E911_SOAP_PASS);
+		if($addswitches = \ohtarr\Utility::E911_Switches_to_Add()){
+			$EGW = new \EmergencyGateway\EGW(	E911_SWITCH_SOAP_URL,
+												E911_SWITCH_SOAP_WSDL,
+												E911_SOAP_USER,
+												E911_SOAP_PASS);
 
-		foreach($addswitches as $OBJECTID => $NAME){
-			$DEVICE = \Information::retrieve($OBJECTID);
-			
-			$ADD_SWITCH = array("switch_ip"				=>	$DEVICE->data['ip'],
-								"switch_vendor"			=>	"Cisco",
-								"switch_erl"			=>	strtoupper(substr($NAME, 0, 8)),
-								"switch_description"	=>	$NAME,
-			);
+			foreach($addswitches as $OBJECTID => $NAME){
+				$DEVICE = \Information::retrieve($OBJECTID);
+				
+				$ADD_SWITCH = array("switch_ip"				=>	$DEVICE->data['ip'],
+									"switch_vendor"			=>	"Cisco",
+									"switch_erl"			=>	strtoupper(substr($NAME, 0, 8)),
+									"switch_description"	=>	$NAME,
+				);
 
-			print_r($ADD_SWITCH);
+				print_r($ADD_SWITCH);
 
-			try {
-				$RESULT = $EGW->add_switch($ADD_SWITCH);
-			} catch ( \SoapFault $E ) {
-				die("SOAP Error: {$E}". $HTML->footer() );
-			} 
+				try {
+					$RESULT = $EGW->add_switch($ADD_SWITCH);
+				} catch ( \SoapFault $E ) {
+					die("SOAP Error: {$E}". $HTML->footer() );
+				} 
 
-			unset($DEVICE);
-			die("Croak!");
+				unset($DEVICE);
+				//die("Croak!");
+			}
 		}
+	}
 
+	public function E911_Remove_switches(){
+		if($delswitches = \ohtarr\Utility::E911_Switches_to_Remove()){
+			$EGW = new \EmergencyGateway\EGW(	E911_SWITCH_SOAP_URL,
+												E911_SWITCH_SOAP_WSDL,
+												E911_SOAP_USER,
+												E911_SOAP_PASS);
 
-
+			foreach($delswitches as $OBJECTIP => $NAME){
+				try {
+					$RESULT = $EGW->delete_switch($OBJECTIP);
+				} catch ( \SoapFault $E ) {
+					die("SOAP Error: {$E}". $HTML->footer() );
+				} 
+				//die("Croak!");
+			}
+		}
 	}
 
 	public function Sitecode_from_Name($NAME){
