@@ -171,10 +171,8 @@ class Utility
 		return $RESULT;
 	}
 
-
+	//get ERLs from mysql backdoor.
 	public function E911_get_erls(){
-
-
 		$URI = BASEURL . "/api/911-get-locations.php";
 		//print $URI;
 		return \Httpful\Request::get($URI)											//Build a PUT request...
@@ -185,7 +183,7 @@ class Utility
 								->body;											
 
 	}
-
+/*
 	public function E911_get_erl_names(){
 		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
 		//extract the NAME of each erl into a new array
@@ -196,21 +194,34 @@ class Utility
 		$allerls = array_values($allerls);
 		return $allerls;
 	}
+/**/
+	//returns an array of all configured ERLs (ERLID => ERLNAME) from the E911 gateway appliance
+	public function E911_get_erl_names(){
+		$erls = \ohtarr\Utility::E911_get_erls();						//get E911 erls via netman API to E911 gateway
+		//extract the NAME of each erl into a new array
+		foreach($erls as $erl){											//go through all e911 erls
+			$allerls[$erl[location_id]] = $erl[erl_id];
+		}
+		natcasesort($allerls);
+		//$allerls = array_values($allerls);
+		return $allerls;
+	}
 
+	//returns an array of default ERLs (ERLID => ERLNAME) from the E911 gateway appliance
 	public function E911_get_default_erl_names(){
 		$erls = \ohtarr\Utility::E911_get_erl_names();
 
 		//extract the NAME of each erl into a new array
-		foreach($erls as $erlname){											//go through all e911 erls
+		foreach($erls as $id => $erlname){											//go through all e911 erls
 			$exploded = explode("_", $erlname);									//we break apart the erl using the "_" as a delimiter
-			$allerls[]=$exploded[0];											//add only the sitecodes of all erls to new array $sites
+			$allerls[$id]=$exploded[0];											//add only the sitecodes of all erls to new array $sites
 		}
+		natcasesort($allerls);
 		$sites = array_unique($allerls);
-		natcasesort($sites);
-		$sites = array_values($sites);
 		return $sites;
 	}
 
+	//Compares SNOW and E911 gateway to determine which ERLs need to be removed from the E911 gateway.
 	public function E911_erls_to_Remove(){
 		
 		$SNOW = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
@@ -240,24 +251,28 @@ class Utility
 		return $dellall;
 	}
 
+	//Removes ERLs that are ready to be removed
 	public function E911_Remove_erls(){
 		if($delerls = \ohtarr\Utility::E911_erls_to_Remove()){
-			
+						
 			$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
 												E911_ERL_SOAP_WSDL,
 												E911_SOAP_USER,
 												E911_SOAP_PASS);
 
 			foreach($delerls as $erl){
+				print $erl;
 				try{
 					$RESULT = $EGW->deleteERL($erl);
 				} catch (\Exception $e) {
+					print $e;
 					print "\n CATCH! \n";
 				}
 			}
 		}
 	}
 
+	//Compares SNOW with E911 Gateway to determine which DEFAULT ERLs need to be added.
 	public function E911_erls_to_Add(){
 		
 		$SNOW = new \ohtarr\ServiceNowRestClient;						//initialize a new snow rest api call
@@ -268,6 +283,7 @@ class Utility
 		return array_values(array_diff($snowlocs,$E911erls));
 	}
 
+	//add any missing DEFAULT ERLs
 	public function E911_Add_erls(){
 		if ($adderls = \ohtarr\Utility::E911_erls_to_Add()){
 			$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
@@ -285,12 +301,13 @@ class Utility
 					$RESULT = $EGW->addERL($addr[name], (array) $ADDRESS);
 				} catch (\Exception $e) {
 					print $e;
-					print "***************************************************************************CATCH!";
+					print "\n***************************************************************************CATCH!\n";
 				}
 			}
 		}
 	}
 
+	//return an array of switch objects from the E911 Gateway
 	public function E911_get_switches(){
 		$URI = BASEURL . "/api/911-get-switches.php";
 		//print $URI;
@@ -301,7 +318,8 @@ class Utility
 								->send()											//send the request.
 								->body;											
 	}
-
+	
+	//return an array of switch names (IPADDRESS => NAME)
 	public function E911_get_switch_names(){
 		$e911switches = \ohtarr\Utility::E911_get_switches();
 
@@ -312,6 +330,7 @@ class Utility
 		return $e911switchnames;
 	}
 
+	//query netman to retrieve an array of all switch names (ID => NAME)
 	public function Netman_get_switch_names(){
 
 		$SEARCH = array(    // Search for all cisco network devices
@@ -339,6 +358,7 @@ class Utility
 
 	}
 
+/*
 	public function E911_Switches_to_Add(){
 		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
 		$deferls = \ohtarr\Utility::E911_get_default_erl_names();
@@ -355,6 +375,210 @@ class Utility
 		$e911switches = \ohtarr\Utility::E911_get_switch_names();
 		return array_diff($addswitches,$e911switches);
 	}
+/**/
+	
+	//returns true if $switchname exists in $e911switches array.
+	public function E911_switch_exists(array $e911switches, $switchname)
+	{
+		//$e911switches = \ohtarr\Utility::E911_get_switch_names();
+		foreach($e911switches as $switch){
+			if ($switchname == $switch[switch_description]){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	//returns true if $erlname exists in $e911erls array.
+	public function E911_erl_exists(array $e911erls, $erlname)
+	{
+		//$e911erls = \ohtarr\Utility::E911_get_erl_names();
+		foreach($e911erls as $erl){
+			if ($erlname == $erl){
+				return true;
+			}
+		}
+		return false;
+	}
+
+/*
+	public function E911_erl_matches($switchname)
+	{
+		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
+		$e911switches = \ohtarr\Utility::E911_get_switches();
+		$erls = \ohtarr\Utility::E911_get_erl_names();	//get ERLS out of E911 appliance
+
+		foreach($netmanswitches as $id => $nmswitch){
+			if ($switchname == $nmswitch){
+				$nmid = $id;
+				break;
+			}
+		}
+		
+		$DEVICE = \Information::retrieve($nmid);		//retrieve the switch object from netman information
+		$NMSNMP = $DEVICE->get_snmp_location();	//retrieve the snmp location from switch object
+
+		foreach($e911switches as $e911switch){
+			if ($e911switch[switch_description] == $switchname){
+				$e911erlid = $e911switch[switch_default_erl_id];
+				break;
+			}
+		}
+		foreach($erls as $erlid => $erlname){
+			if($e911erlid == $erlid){
+				$e911erlname = $erlname;
+				break;
+			}
+		}
+
+		if ($NMSNMP[erl] == $e911erlname){
+			return true;
+		} else {
+			return false;
+		}
+	}
+/**/
+
+	//returns true if ERL configured for $switchname in NETMAN($netmanswitches) AND E911GW($e911switches) matches. 
+	public function E911_erl_matches(array $netmanswitches, array $e911switches, array $erls, $switchname)
+	{
+		//print_r($netmanswitches);
+		//print_r($e911switches);
+		//print_r($erls);
+		foreach($netmanswitches as $id => $nmswitch){
+			if ($switchname == $nmswitch){
+				$nmid = $id;
+				//print "NETMAN SWITCH ID : " . $nmid . "\n";
+				break;
+			}
+		}
+		$DEVICE = \Information::retrieve($nmid);		//retrieve the switch object from netman information
+		$NMSNMP = $DEVICE->get_snmp_location();	//retrieve the snmp location from switch object
+		//print "SNMP LOCATION ERL : " . $NMSNMP[erl] . "\n";
+		foreach($e911switches as $e911switch){
+			//print "E911 Switch : " . $e911switch[switch_description] . "\n";
+			//print "Queried Switch : " . $switchname . "\n";
+			if ($e911switch[switch_description] == $switchname){
+				$e911erlid = $e911switch[switch_default_erl_id];
+				//print "E911 SWITCH ERL ID : " . $e911erlid . "\n";
+				break;
+			}
+		}
+		foreach($erls as $erlid => $erlname){
+			if($e911erlid == $erlid){
+				$e911erlname = $erlname;
+				//print "ERL : " . $e911erlname . "\n";
+				break;
+			}
+		}
+
+		if ($NMSNMP[erl] == $e911erlname){
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	//returns an array of switches that need to be added to E911 GW.
+	//this includes checking if the switch exists, if the configured ERL exists, and if the ERL matches.
+	public function E911_Switches_to_Add()
+	{
+		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names(); //Get switches out of netman
+		$e911switches = \ohtarr\Utility::E911_get_switches();  //Get switches out of E911 appliance
+		$erls = \ohtarr\Utility::E911_get_erl_names();	//get ERLS out of E911 appliance
+
+		foreach($netmanswitches as $id => $switch){		//Loop through each switch from netman
+			$DEVICE = \Information::retrieve($id);		//retrieve the switch object from netman information
+			$SNMPLOC = $DEVICE->get_snmp_location();	//retrieve the snmp location from switch object
+			//print $switch . "\n";
+			if (\ohtarr\Utility::E911_switch_exists($e911switches, $switch)){
+				//print "switch exists!\n";
+				if (\ohtarr\Utility::E911_erl_matches($netmanswitches, $e911switches, $erls, $switch)){
+					//print "erl matches!!\n";
+					continue;
+				} else {
+					//print "ADD SWITCH!\n";
+					$addswitches[$id] = $switch;
+				}
+			} else {
+				if (\ohtarr\Utility::E911_erl_exists($erls, $SNMPLOC[erl])){
+					//print "erl exists!\n";
+					//print "ADDSWITCH!\n";
+					$addswitches[$id] = $switch;
+				}
+			}
+			unset($DEVICE);
+		}
+		return $addswitches;
+	}
+
+/*
+	public function E911_Switches_to_Add2()
+	{
+		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
+		$e911switches = \ohtarr\Utility::E911_get_switches();
+		$erls = \ohtarr\Utility::E911_get_erl_names();	//get ERLS out of E911 appliance
+
+	}
+
+	//builds an array of switches that need to be ADDED or MODIFIED in the E911 appliance.
+	public function E911_Switches_to_Add3(){
+		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names(); //Get switches out of netman
+		$e911switches = \ohtarr\Utility::E911_get_switches();	//get switches out of E911 appliance
+		$erls = \ohtarr\Utility::E911_get_erl_names();	//get ERLS out of E911 appliance
+			//print_r($erls);
+			foreach($netmanswitches as $id => $switch){		//Loop through each switch from netman
+				$exists = 0;
+				$erlexists = 0;
+				print "NETMAN SWITCH: " . $switch . "\n";
+				$DEVICE = \Information::retrieve($id);		//retrieve the switch object from netman information
+				$SNMPLOC = $DEVICE->get_snmp_location();	//retrieve the snmp location from switch object
+				print_r($SNMPLOC);
+
+				foreach($erls as $erl){
+					if ($erl == $SNMPLOC[erl]){			//If erl exists, add switch to array and break foreach loop.
+						//print "ERL = " . $erl . "\n";
+						//print "SWITCHERL = " . $SNMPLOC[erl] . "\n";
+						print "ERL EXISTS! \n";
+						print "Modify switch! \n";
+						//$addswitches[$id] = $switch;  
+						$erlexists = 1;
+						break;
+					}	
+				}
+
+				foreach($e911switches as $e911switch){		//Loop through each E911 switch
+					//print_r($e911switch);
+					//print "E911 SWITCH: " . $e911switch[switch_description] . "\n";
+					//print "E911 SWITCH ERL ID: " . $e911switch[switch_default_erl_id] . "\n";
+					//print "E911 ERL NAME: " . $erls[$e911switch[switch_default_erl_id]] . "\n";
+					if($switch == $e911switch[switch_description]){		//See if we have a match
+						//switch exists already!
+						$exists = 1;		//If the switch already exists in the E911 appliance, flag $exists.
+						print "EXISTS! \n";
+						if($SNMPLOC[erl] !== $erls[$e911switch[switch_default_erl_id]]){	//Now check if the ERL in SNMP-SERVER LOCATION matches the ERL assigned in the E911 appliance 
+							//ERL does not match, need to modify!
+							//print "SWITCH ERL: " . $SNMPLOC[erl];
+							//print "E911 ERL: " . $erls[$e911switch[location_id]] . "\n";
+
+							
+						} else {
+							print "ERL MATCHES! \n";
+						}
+						break;  //break out of foreach since we found a match!
+					} 
+				}
+				unset($DEVICE);		//clear memory
+				if ($exists == 0){		//If the switch doesn't exist at all, go ahead and add it to our array.
+					print "Switch doesn't exist, need to add it! \n";
+					$addswitches[$id] = $switch;
+				}
+			}
+		natcasesort($addswitches);		//sort the resulting array alphabetically
+		$addswitches = array_unique($addswitches);		//remove any duplicate switches
+		return $addswitches;		//return the array!
+	}
+/**/
 
 	public function E911_Switches_to_Remove(){
 		$netmanswitches = \ohtarr\Utility::Netman_get_switch_names();
@@ -372,21 +596,27 @@ class Utility
 
 			foreach($addswitches as $OBJECTID => $NAME){
 				$DEVICE = \Information::retrieve($OBJECTID);
-				
-				$ADD_SWITCH = array("switch_ip"				=>	$DEVICE->data['ip'],
-									"switch_vendor"			=>	"Cisco",
-									"switch_erl"			=>	strtoupper(substr($NAME, 0, 8)),
-									"switch_description"	=>	$NAME,
-				);
+				$SNMP = $DEVICE->get_snmp_location();
+				if ($SNMP[erl]){
+					$ADD_SWITCH = array("switch_ip"				=>	$DEVICE->data['ip'],
+										"switch_vendor"			=>	"Cisco",
+										"switch_erl"			=>	$SNMP[erl],
+										"switch_description"	=>	$NAME,
+					);
 
-				print_r($ADD_SWITCH);
+					print_r($ADD_SWITCH);
+					
+					try {
+						$RESULT = $EGW->delete_switch($DEVICE->data['ip']);
+					} catch ( \SoapFault $E ){
 
-				try {
-					$RESULT = $EGW->add_switch($ADD_SWITCH);
-				} catch ( \SoapFault $E ) {
-					die("SOAP Error: {$E}". $HTML->footer() );
-				} 
-
+					}
+					try {
+						$RESULT = $EGW->add_switch($ADD_SWITCH);
+					} catch ( \SoapFault $E ) {
+						die("SOAP Error: {$E}". $HTML->footer() );
+					} 
+				}
 				unset($DEVICE);
 				//die("Croak!");
 			}
@@ -403,6 +633,24 @@ class Utility
 			foreach($delswitches as $OBJECTIP => $NAME){
 				try {
 					$RESULT = $EGW->delete_switch($OBJECTIP);
+				} catch ( \SoapFault $E ) {
+					die("SOAP Error: {$E}". $HTML->footer() );
+				} 
+				//die("Croak!");
+			}
+		}
+	}
+
+	public function E911_Remove_ALL_switches(){
+		if($delswitches = \ohtarr\Utility::E911_get_switches()){
+			$EGW = new \EmergencyGateway\EGW(	E911_SWITCH_SOAP_URL,
+												E911_SWITCH_SOAP_WSDL,
+												E911_SOAP_USER,
+												E911_SOAP_PASS);
+
+			foreach($delswitches as $SWITCH){
+				try {
+					$RESULT = $EGW->delete_switch($SWITCH[switch_ip]);
 				} catch ( \SoapFault $E ) {
 					die("SOAP Error: {$E}". $HTML->footer() );
 				} 
