@@ -253,8 +253,28 @@ class E911
 	returns array of erl names that need to be removed from the e911 appliance (inactive and unvalidated in SNOW)
 	/**/
 	public function erls_to_remove(){
-		$erlstoremove = array_diff_key($this->E911_ERLS,$this->SNOW_LOCS);		//compare E911_ERLS to SNOW_LOCS, we are left with the differences
-		return array_keys($erlstoremove);				//return an array of ERL NAMES
+		foreach($this->E911_ERLS as $erlname => $erl){											//go through all e911 erls
+			$exploded = explode("_", $erlname);									//we break apart the erl using the "_" as a delimiter
+			$defaulterls[]=$exploded[0];											//add only the sitecodes of all erls to new array $sites
+		}
+		$defaulterls = array_values(array_unique($defaulterls));
+		//print "defaulterls: \n";
+		//print_r($defaulterls);
+		//print "SNOW LOCS KEYS: \n";
+		//print_r(array_keys($this->SNOW_LOCS));
+		$deldeferls = array_diff($defaulterls,array_keys($this->SNOW_LOCS));		//compare E911_ERLS to SNOW_LOCS, we are left with the differences
+		//print "deldeferls: \n";
+		//print_r($deldeferls);
+		foreach($deldeferls as $deferl){
+			foreach($this->E911_ERLS as $erlname=>$erl){
+				if(substr($erlname, 0, 8) == $deferl){
+					$dellall[] = $erlname;
+				}
+			}
+		}
+		//print "dellall= \n";
+		//print_r($dellall);
+		return $dellall;				//return an array of ERL NAMES
 	}
 
 	/*
@@ -279,16 +299,16 @@ class E911
 					!empty(strcmp(strtoupper($this->SNOW_LOCS[$erlname][u_street_2]),	strtoupper($erl[loc])))								||
 					!empty(strcmp(strtoupper($erlelin),									strtoupper($erl[elins])))){							
 
-						//print "****************************NO MATCH! ********************************\n";
-						//print "ERL: " . $erlname . "\n";
-						//print strtoupper($this->SNOW_LOCS[$erlname][street])	. "=" . strtoupper($erl[hno] . " " . $erl[street])	. "\n";
-						//print strtoupper($this->SNOW_LOCS[$erlname][city])		. "=" . strtoupper($erl[city])						. "\n";
-						//print strtoupper($this->SNOW_LOCS[$erlname][state])		. "=" . strtoupper($erl[state])						. "\n";
-						//print strtoupper($this->SNOW_LOCS[$erlname][zip])		. "=" . strtoupper($erl[zip])						. "\n";
-						//print strtoupper($this->SNOW_LOCS[$erlname][country])	. "=" . strtoupper($erl[country])					. "\n";
-						//print strtoupper($this->SNOW_LOCS[$erlname][u_street_2]). "=" . strtoupper($erl[loc])						. "\n";
-						//print strtoupper($erlelin)								. "=" . strtoupper($erl[elins])						. "\n";
-						//print "****************************NO MATCH! ********************************\n";
+						print "****************************NO MATCH! ********************************\n";
+						print "ERL: " . $erlname . "\n";
+						print strtoupper($this->SNOW_LOCS[$erlname][street])	. "=" . strtoupper($erl[hno] . " " . $erl[street])	. "\n";
+						print strtoupper($this->SNOW_LOCS[$erlname][city])		. "=" . strtoupper($erl[city])						. "\n";
+						print strtoupper($this->SNOW_LOCS[$erlname][state])		. "=" . strtoupper($erl[state])						. "\n";
+						print strtoupper($this->SNOW_LOCS[$erlname][zip])		. "=" . strtoupper($erl[zip])						. "\n";
+						print strtoupper($this->SNOW_LOCS[$erlname][country])	. "=" . strtoupper($erl[country])					. "\n";
+						print strtoupper($this->SNOW_LOCS[$erlname][u_street_2]). "=" . strtoupper($erl[loc])						. "\n";
+						print strtoupper($erlelin)								. "=" . strtoupper($erl[elins])						. "\n";
+						print "****************************NO MATCH! ********************************\n";
 /**/
 						$modify_erls[] = $erlname;			//add the erl to our list to modify
 				}
@@ -355,7 +375,9 @@ class E911
 	public function switches_to_remove(){
 		//compare E911 switches to NM Switches, return the differences
 		$switchestoremove = array_diff_key($this->E911_SWITCHES,$this->NM_SWITCHES);
-		return array_keys($switchestoremove);		//return array of switch names
+		if (!empty(array_keys($switchestoremove))){
+			return array_keys($switchestoremove);		//return array of switch names
+		}
 	}
 
 	/*
@@ -371,25 +393,25 @@ class E911
 												E911_SOAP_PASS);
 
 			foreach($adderls as $locname){		//loop through erls that need to be added
-				print "ERL to ADD: " . $locname . "\n";
+				//print "ERL to ADD: " . $locname . "\n";
 				unset($erlelinid);
 				if($this->SNOW_LOCS[$locname][country] == "CA"){
 					foreach($this->NM_ELINS as $elinid => $elin){		//loop through all elins
 						if ($elin[name] == $locname){					//if an elin exists with the name of the erl
-							print "Matches ELIN: " . $elin[id] . "\n";
+							//print "Matches ELIN: " . $elin[id] . "\n";
 							$erlelinid = $elin[id];							//assign elin ID to variable for later use
 							break;											//no need to loop any further
 						}
 					}
 					if($erlelinid){									//if we found an existing elin assigned to this erl
-						print "We found a matching ELIN! \n";
+						//print "We found a matching ELIN! \n";
 						$ELINS = $this->NM_ELINS[$erlelinid][number];		//assign the elin number to the EGW adderl call.
 					} else {										//if no existing elin is assigned to this erl
 						//assign a new elin in NM DB
-						print "No matching ELINs, we are going to find an available elin \n";
+						//print "No matching ELINs, we are going to find an available elin \n";
 						foreach($this->NM_ELINS as $elinid => $elin){	//loop through all elins
 							if ($elin[name] == "Available"){			//find the first elin called "Available"
-								print "ELIN " . $elin[id] . " is Available! assigned erl \n";
+								//print "ELIN " . $elin[id] . " is Available! assigned erl \n";
 								$DID = \Information::retrieve($elinid);		//grab the elin from NM
 								$DID->data['name'] = $locname;				//modify the name to erl name
 								$DID->update();								//save to DB
@@ -430,7 +452,7 @@ class E911
 			foreach($moderls as $locname){		//loop through erls that need to be added
 				print "ERL to MODIFY: " . $locname . "\n";
 				unset($erlelinid);
-				if($this->SNOW_LOCS[$locname][country] == "CA"){		//If this is a canadian site
+				unset($ELINS);
 					foreach($this->NM_ELINS as $elinid => $elin){		//loop through all elins
 						if ($elin[name] == $locname){					//if an elin exists with the name of the erl
 							print "Matches ELIN: " . $elin[id] . "\n";
@@ -441,7 +463,7 @@ class E911
 					if($erlelinid){									//if we found an existing elin assigned to this erl
 						print "We found a matching ELIN! \n";
 						$ELINS = $this->NM_ELINS[$erlelinid][number];		//assign the elin number to the EGW adderl call.
-					} else {										//if no existing elin is assigned to this erl
+					} elseif ($this->SNOW_LOCS[$locname][country] == "CA" || $this->SNOW_LOCS[$locname][country] == "CAN"){										//if no existing elin is assigned to this erl
 						//assign a new elin in NM DB
 						print "No matching ELINs, we are going to find an available elin \n";
 						foreach($this->NM_ELINS as $elinid => $elin){	//loop through all elins
@@ -455,9 +477,11 @@ class E911
 								break;									//no need to loop through elins any further
 							}
 						}
+					} else {
+						$ELINS = "";
 					}
-				}
-				print_r($this->SNOW_LOCS[$locname]);
+
+				//print_r($this->SNOW_LOCS[$locname]);
 				//feed our address information into the Address class to parse house number and street address
 				$ADDRESS = \EmergencyGateway\Address::fromString($this->SNOW_LOCS[$locname][street], $this->SNOW_LOCS[$locname][city], $this->SNOW_LOCS[$locname][state], $this->SNOW_LOCS[$locname][country], $this->SNOW_LOCS[$locname][zip], $this->SNOW_LOCS[$locname][name]);
 				//add STREET2 information
@@ -485,7 +509,7 @@ class E911
 												E911_SOAP_USER,
 												E911_SOAP_PASS);
 			foreach($remerls as $erlname){		//loop through erl names
-				print $erlname;
+				//print $erlname;
 				//hit the EGW API and attempt to delete the erl
 				try{
 					$RESULT = $EGW->deleteERL($erlname);
