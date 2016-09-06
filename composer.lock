@@ -1,0 +1,155 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
+    ],
+    "hash": "acd62b8cf5d934a847b717dac37df955",
+    "content-hash": "efe0e1cc2d00db7c57904aa1440c0537",
+    "packages": [
+        {
+            "name": "metaclassing/utility",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/metaclassing/utility.git",
+                "reference": "3e2464f2908cd45caf1800523cf7d7584f1b3363"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/metaclassing/utility/zipball/3e2464f2908cd45caf1800523cf7d7584f1b3363",
+                "reference": "3e2464f2908cd45caf1800523cf7d7584f1b3363",
+                "shasum": ""
+            },
+            "require": {
+                "nategood/httpful": "^0.2.20",
+                "ospinto/dbug": "dev-master",
+                "php": ">=5.3.3"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "~4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Metaclassing\\": "lib"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "LGPL3.0"
+            ],
+            "authors": [
+                {
+                    "name": "John.Lavoie",
+                    "email": "composer@secureobscure.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "PHP Utility Library",
+            "homepage": "http://github.com/metaclassing/utility",
+            "keywords": [
+                "php5",
+                "utility"
+            ],
+            "time": "2016-09-01 15:07:22"
+        },
+        {
+            "name": "nategood/httpful",
+            "version": "0.2.20",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nategood/httpful.git",
+                "reference": "c1cd4d46a4b281229032cf39d4dd852f9887c0f6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nategood/httpful/zipball/c1cd4d46a4b281229032cf39d4dd852f9887c0f6",
+                "reference": "c1cd4d46a4b281229032cf39d4dd852f9887c0f6",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "php": ">=5.3"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "Httpful": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nate Good",
+                    "email": "me@nategood.com",
+                    "homepage": "http://nategood.com"
+                }
+            ],
+            "description": "A Readable, Chainable, REST friendly, PHP HTTP Client",
+            "homepage": "http://github.com/nategood/httpful",
+            "keywords": [
+                "api",
+                "curl",
+                "http",
+                "requests",
+                "rest",
+                "restful"
+            ],
+            "time": "2015-10-26 16:11:30"
+        },
+        {
+            "name": "ospinto/dbug",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ospinto/dbug.git",
+                "reference": "4a1bb162c021c2cb0103075e25a94926fc0e0eda"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ospinto/dbug/zipball/4a1bb162c021c2cb0103075e25a94926fc0e0eda",
+                "reference": "4a1bb162c021c2cb0103075e25a94926fc0e0eda",
+                "shasum": ""
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "dBug.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-3.0"
+            ],
+            "authors": [
+                {
+                    "name": "Kwaku Otchere",
+                    "email": "ospinto@hotmail.com",
+                    "homepage": "http://dbug.ospinto.com/",
+                    "role": "Former author"
+                }
+            ],
+            "description": "PHP version of ColdFusion's cfdump. Outputs colored and structured tabular variable information.",
+            "time": "2014-01-20 19:21:40"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "dev",
+    "stability-flags": {
+        "metaclassing/utility": 20
+    },
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {
+        "php": ">=5.3.3"
+    },
+    "platform-dev": []
+}

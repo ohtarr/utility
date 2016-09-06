@@ -100,6 +100,18 @@ class Utility
 		return $RESPONSE;
     }
 
+	public function automation_report($params)
+	{
+		$URI = API_REPORTING_URL_DEV;			//api to hit e911 raw DB
+		$response = \Httpful\Request::post($URI)								//Build a GET request...
+								->authenticateWith(LDAP_USER, LDAP_PASS)
+								->body($params)									//parameters to send in body
+								->sendsType(\Httpful\Mime::FORM)
+								->send()
+								->body;											//send the request.
+		return $response;
+	}
+
 	public function Find_Switches()
     {
 		// Use the object (information store) search function to find the devices we WANT to push to
@@ -654,6 +666,26 @@ class Utility
 				} catch ( \SoapFault $E ) {
 					die("SOAP Error: {$E}". $HTML->footer() );
 				} 
+				//die("Croak!");
+			}
+		}
+	}
+
+	public function E911_Remove_ALL_erls(){
+		if($delerls = \ohtarr\Utility::E911_get_erl_names()){
+			$EGW = new \EmergencyGateway\EGW(	E911_ERL_SOAP_URL,
+												E911_ERL_SOAP_WSDL,
+												E911_SOAP_USER,
+												E911_SOAP_PASS);
+
+			foreach($delerls as $erl){
+				try {
+					$RESULT = $EGW->deleteERL($erl);
+				} catch (\Exception $e) {
+					print "\n***************************************************************************CATCH!\n";
+					print $e;
+					print "\n***************************************************************************CATCH!\n";
+				}
 				//die("Croak!");
 			}
 		}
