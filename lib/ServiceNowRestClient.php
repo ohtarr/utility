@@ -57,7 +57,7 @@ class ServiceNowRestClient
 		$raw = \Httpful\Request::get($URI)											//Build a GET request...
 								->expectsJson()										//we expect JSON back from the api
 								->authenticateWith(LDAP_USER, LDAP_PASS)			//authenticate with basic auth...
-								->parseWith("\\metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
+								->parseWith("\\Metaclassing\\Utility::decodeJson")	//Parse and convert to an array with our own parser, rather than the default httpful parser
 								->send()											//send the request.
 								->body;												//include the body
 	
